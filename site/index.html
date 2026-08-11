@@ -415,11 +415,11 @@
   </div>
 
   <div class="headline">
-    <p class="eyebrow" id="eyebrow">Availability monitor</p>
-    <h1 id="summary">Reading&hellip;</h1>
+    <p class="eyebrow" id="eyebrow">Live service status</p>
+    <h1 id="summary">Checking&hellip;</h1>
     <div class="state-line">
       <span class="beacon" id="beacon"></span>
-      <span id="lastcheck">Loading current readings</span>
+      <span id="lastcheck">Checking now</span>
     </div>
   </div>
 
@@ -427,7 +427,7 @@
     <div class="ribbon" id="ribbon"></div>
     <div class="ribbon-scale">
       <span id="scale-start">&mdash;</span>
-      <span>Composite signal</span>
+      <span>All services over time</span>
       <span>Now</span>
     </div>
   </div>
@@ -435,7 +435,7 @@
   <main id="services" aria-live="polite"></main>
 
   <footer>
-    <span>Probed every 5 minutes &middot; single vantage point</span>
+    <span>Checked automatically every 5 minutes</span>
     <span id="generated"></span>
   </footer>
 
@@ -489,12 +489,12 @@ function classify(c) {
   return "up";
 }
 
-const WORD = { up: "Operational", down: "Down", slow: "Degraded", unknown: "No data" };
+const WORD = { up: "Working", down: "Down", slow: "Slow", unknown: "No data yet" };
 const BANNER = {
-  up:      "All systems nominal",
-  slow:    "Degraded performance",
-  down:    "Service disruption",
-  unknown: "Awaiting first reading"
+  up:      "Everything is working",
+  slow:    "Running slowly",
+  down:    "There is a problem",
+  unknown: "Waiting for first check"
 };
 
 function height(ms) {
@@ -562,7 +562,8 @@ function render(data) {
     const verdict = el("div", "verdict");
     verdict.append(
       el("span", "verdict-word " + state, WORD[state]),
-      el("span", "verdict-ms", svc.ms != null ? svc.ms + " ms" : "no response")
+      el("span", "verdict-ms",
+         svc.ms != null ? (svc.ms / 1000).toFixed(2) + "s to load" : "no response")
     );
 
     head.append(idBlock, verdict);
@@ -575,8 +576,8 @@ function render(data) {
       tick.style.height = entry ? height(entry.ms) + "%" : "20%";
       tick.style.animationDelay = (i * 60 + j * 4) + "ms";
       if (entry) {
-        tick.title = entry.at + "  ·  " + WORD[s] +
-                     (entry.ms != null ? "  ·  " + entry.ms + " ms" : "");
+        tick.title = new Date(entry.at).toLocaleString() + "  ·  " + WORD[s] +
+                     (entry.ms != null ? "  ·  " + (entry.ms / 1000).toFixed(2) + "s" : "");
       }
       strip.append(tick);
     });
@@ -585,9 +586,10 @@ function render(data) {
     const foot = el("div", "strip-foot");
     const hrs = Math.round(SLOTS * 5 / 60);
     foot.innerHTML =
-      "<span>" + hrs + "h window</span>" +
-      "<span><b>" + uptime(svc.history || []) + "</b> uptime</span>" +
-      "<span>" + (svc.code != null ? "HTTP " + svc.code : "no reply") + "</span>";
+      "<span>Last " + hrs + " hours</span>" +
+      "<span><b>" + uptime(svc.history || []) + "</b> available</span>" +
+      "<span>" + (svc.code != null && svc.code < 400
+                    ? "Responding" : "Not responding") + "</span>";
     row.append(foot);
 
     roster.append(row);
@@ -603,10 +605,15 @@ function render(data) {
 
   document.getElementById("summary").textContent = BANNER[worst];
   document.getElementById("summary").className = worst === "up" ? "" : worst;
-  document.getElementById("lastcheck").textContent = "Last reading " + relative(data.generated);
-  document.getElementById("generated").textContent = data.generated;
+  document.getElementById("lastcheck").textContent = "Last checked " + relative(data.generated);
+  document.getElementById("generated").textContent =
+    new Date(data.generated).toLocaleString([], {
+      month: "short", day: "numeric", hour: "numeric",
+      minute: "2-digit", timeZoneName: "short"
+    });
   document.getElementById("eyebrow").textContent =
-    data.services.length + " endpoint" + (data.services.length === 1 ? "" : "s") + " monitored";
+    "Live status for " + data.services.length + " service" +
+    (data.services.length === 1 ? "" : "s");
 
   const first = (data.services[0] || {}).history || [];
   document.getElementById("scale-start").textContent =
@@ -654,12 +661,12 @@ function load() {
     .then(r => { if (!r.ok) throw new Error("status.json returned HTTP " + r.status); return r.json(); })
     .then(render)
     .catch(err => {
-      document.getElementById("summary").textContent = "Monitor offline";
+      document.getElementById("summary").textContent = "Status unavailable";
       document.getElementById("beacon").classList.remove("live");
       document.getElementById("ribbon").innerHTML = "";
       const n = el("div", "notice");
-      n.innerHTML = "<b>No readings available.</b><br>" +
-        "The checker has not written status.json yet, or nginx cannot serve it.<br><br>" +
+      n.innerHTML = "<b>We can't show the status right now.</b><br>" +
+        "The monitor hasn't recorded a check yet. Try again in a few minutes.<br><br>" +
         err.message.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
       document.getElementById("services").innerHTML = "";
       document.getElementById("services").append(n);
