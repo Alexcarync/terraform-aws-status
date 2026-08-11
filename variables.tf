@@ -13,5 +13,5 @@ variable "instance_type" {
 variable "repo_url" {
   description = "Public git repo containing the site/ folder"
   type        = string
-  default     = "https://github.com/<username>/terraform-aws-web.git"
+  default     = "https://github.com/Alexcarync/terraform-aws-status"
 }

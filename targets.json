@@ -1,0 +1,11 @@
+[
+  {
+    "name": "ITL Solutions website",
+    "url": "https://itl.us",
+    "expect_status": 200
+  },
+  {
+    "name": "ITL Solutions website (www)",
+    "url": "https://www.itl.us"
+  }
+]

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service status</title>
+<style>
+  /* No web fonts, no CDNs, no frameworks. A status page has to render
+     when everything else is on fire, so it depends on nothing. */
+
+  :root {
+    --ground:   #EDEEE9;
+    --panel:    #F6F7F3;
+    --ink:      #1B2027;
+    --ink-soft: #5C6670;
+    --rule:     #C9CDC4;
+    --up:       #3D7A5A;
+    --down:     #A8432E;
+    --slow:     #B5852F;
+    --unknown:  #9AA1A8;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono",
+            Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:   #171C22;
+      --panel:    #1E242B;
+      --ink:      #E4E7E2;
+      --ink-soft: #8D969E;
+      --rule:     #333B44;
+      --up:       #5FA37C;
+      --down:     #D2694F;
+      --slow:     #D9A64A;
+      --unknown:  #5A626A;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 5rem;
+  }
+
+  /* ---- Masthead ---- */
+
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.75rem;
+  }
+
+  h1 {
+    font-size: clamp(1.75rem, 5vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.75rem;
+  }
+
+  .headline-state {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--unknown);
+    display: inline-block;
+    flex: none;
+    align-self: center;
+  }
+
+  .dot.live { animation: pulse 2.4s ease-in-out infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot.live { animation: none; }
+  }
+
+  .meta {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  /* ---- Service rows ---- */
+
+  .service {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    padding: 1.25rem 1.25rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .service-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .service-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .service-url {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 400;
+    margin-top: 0.15rem;
+    word-break: break-all;
+  }
+
+  .service-state {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .up      { color: var(--up); }
+  .down    { color: var(--down); }
+  .slow    { color: var(--slow); }
+  .unknown { color: var(--unknown); }
+
+  /* ---- The tick strip: the one thing this page is remembered by ----
+     90 hairlines, one per check, oldest at left. Height encodes latency,
+     colour encodes outcome. It is the data, drawn directly. */
+
+  .strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 34px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 2px;
+    overflow: hidden;
+  }
+
+  .tick {
+    flex: 1 1 0;
+    min-width: 2px;
+    background: var(--unknown);
+    opacity: 0.85;
+  }
+
+  .tick.up   { background: var(--up); }
+  .tick.down { background: var(--down); height: 100% !important; }
+  .tick.slow { background: var(--slow); }
+
+  .strip-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+    margin-top: 0.5rem;
+  }
+
+  /* ---- Footer ---- */
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    font-size: 11px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .error {
+    background: var(--panel);
+    border: 1px solid var(--down);
+    border-left-width: 3px;
+    padding: 1rem 1.25rem;
+    color: var(--ink);
+  }
+
+  a { color: inherit; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Availability monitor</p>
+    <h1 id="summary">Checking&hellip;</h1>
+    <div class="headline-state">
+      <span class="dot" id="dot"></span>
+      <span class="meta" id="lastcheck">Loading current readings</span>
+    </div>
+  </header>
+
+  <main id="services">
+    <!-- rendered from status.json -->
+  </main>
+
+  <footer>
+    <span>Checks run every 5 minutes from a single vantage point.</span>
+    <span id="generated"></span>
+  </footer>
+
+</div>
+
+<script>
+const HISTORY_SLOTS = 90;
+
+function classify(check) {
+  if (!check || check.status === "unknown") return "unknown";
+  if (check.status === "down") return "down";
+  if (check.ms !== null && check.ms > 2000) return "slow";
+  return "up";
+}
+
+function label(state) {
+  return { up: "Operational", down: "Down", slow: "Degraded", unknown: "No data" }[state];
+}
+
+// Latency drives tick height: 60ms floor, 1500ms ceiling.
+function tickHeight(ms) {
+  if (ms === null || ms === undefined) return 30;
+  const pct = Math.min(100, Math.max(18, (ms / 1500) * 100));
+  return pct;
+}
+
+function render(data) {
+  const container = document.getElementById("services");
+  container.innerHTML = "";
+
+  let worst = "up";
+  const rank = { up: 0, slow: 1, unknown: 2, down: 3 };
+
+  data.services.forEach(svc => {
+    const state = classify(svc);
+    if (rank[state] > rank[worst]) worst = state;
+
+    const el = document.createElement("section");
+    el.className = "service";
+
+    const head = document.createElement("div");
+    head.className = "service-head";
+    head.innerHTML =
+      '<div class="service-name">' + escapeHtml(svc.name) +
+      '<span class="service-url">' + escapeHtml(svc.url) + '</span></div>' +
+      '<div class="service-state ' + state + '">' + label(state) +
+      (svc.ms !== null ? ' &middot; ' + svc.ms + 'ms' : '') + '</div>';
+    el.appendChild(head);
+
+    const strip = document.createElement("div");
+    strip.className = "strip";
+
+    const history = svc.history || [];
+    const padded = new Array(Math.max(0, HISTORY_SLOTS - history.length))
+      .fill(null)
+      .concat(history.slice(-HISTORY_SLOTS));
+
+    padded.forEach(entry => {
+      const tick = document.createElement("div");
+      const s = entry ? classify(entry) : "unknown";
+      tick.className = "tick " + s;
+      tick.style.height = entry ? tickHeight(entry.ms) + "%" : "22%";
+      if (entry) {
+        tick.title = entry.at + " — " + label(s) +
+                     (entry.ms !== null ? " (" + entry.ms + "ms)" : "");
+      }
+      strip.appendChild(tick);
+    });
+
+    el.appendChild(strip);
+
+    const legend = document.createElement("div");
+    legend.className = "strip-legend";
+    const span = Math.round(HISTORY_SLOTS * 5 / 60);
+    legend.innerHTML = "<span>" + span + "h ago</span>" +
+                       "<span>" + uptimePct(history) + "% uptime</span>" +
+                       "<span>now</span>";
+    el.appendChild(legend);
+
+    container.appendChild(el);
+  });
+
+  const dot = document.getElementById("dot");
+  dot.style.background = "var(--" + worst + ")";
+  dot.classList.add("live");
+
+  document.getElementById("summary").textContent = {
+    up:      "All systems operational",
+    slow:    "Degraded performance",
+    down:    "Service disruption",
+    unknown: "Awaiting first check"
+  }[worst];
+
+  document.getElementById("lastcheck").textContent =
+    "Last checked " + relative(data.generated);
+  document.getElementById("generated").textContent = data.generated;
+}
+
+function uptimePct(history) {
+  if (!history.length) return "—";
+  const good = history.filter(h => h.status === "up").length;
+  return ((good / history.length) * 100).toFixed(1);
+}
+
+function relative(iso) {
+  const then = new Date(iso);
+  const mins = Math.round((Date.now() - then.getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 minute ago";
+  if (mins < 60) return mins + " minutes ago";
+  const hrs = Math.round(mins / 60);
+  return hrs === 1 ? "1 hour ago" : hrs + " hours ago";
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function load() {
+  fetch("status.json?t=" + Date.now())
+    .then(r => {
+      if (!r.ok) throw new Error("status.json returned " + r.status);
+      return r.json();
+    })
+    .then(render)
+    .catch(err => {
+      document.getElementById("summary").textContent = "Monitor unavailable";
+      document.getElementById("services").innerHTML =
+        '<div class="error">Could not read status.json. The checker may not ' +
+        'have run yet, or nginx cannot serve the file.<br><br>' +
+        escapeHtml(err.message) + '</div>';
+    });
+}
+
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
