@@ -1,377 +1,673 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Service status</title>
+<title>Signal — availability monitor</title>
 <style>
-  /* No web fonts, no CDNs, no frameworks. A status page has to render
-     when everything else is on fire, so it depends on nothing. */
+  /* ------------------------------------------------------------------
+     No web fonts, no CDNs, no frameworks. A status page that needs a
+     third party to render is a status page that goes down with them.
+     Type comes from faces that already ship with the OS.
+     ------------------------------------------------------------------ */
 
   :root {
-    --ground:   #EDEEE9;
-    --panel:    #F6F7F3;
-    --ink:      #1B2027;
-    --ink-soft: #5C6670;
-    --rule:     #C9CDC4;
-    --up:       #3D7A5A;
-    --down:     #A8432E;
-    --slow:     #B5852F;
-    --unknown:  #9AA1A8;
+    /* Bahnschrift ships with Windows 10+, Avenir Next Condensed with
+       macOS. Both are condensed grotesques; the fallbacks keep the
+       proportions close. */
+    --display: "Bahnschrift", "Avenir Next Condensed", "Arial Narrow",
+               "Roboto Condensed", "Liberation Sans Narrow", sans-serif;
+    --body:    "Segoe UI Variable Text", "Segoe UI", -apple-system,
+               BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --data:    ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono",
+               Menlo, Consolas, monospace;
 
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono",
-            Menlo, Consolas, monospace;
+    --radius: 3px;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground:   #171C22;
-      --panel:    #1E242B;
-      --ink:      #E4E7E2;
-      --ink-soft: #8D969E;
-      --rule:     #333B44;
-      --up:       #5FA37C;
-      --down:     #D2694F;
-      --slow:     #D9A64A;
-      --unknown:  #5A626A;
-    }
+  /* Harbour at night — deep petrol, warm sand, oxidised metal accents. */
+  :root[data-theme="dark"] {
+    --ground:    #0E1A20;
+    --panel:     #142730;
+    --panel-lip: #1B333D;
+    --ink:       #E9E3D6;
+    --ink-soft:  #8598A0;
+    --ink-faint: #4E656E;
+    --rule:      #1F3841;
+    --brass:     #C08F52;
+    --up:        #6FA88C;
+    --slow:      #C9954E;
+    --down:      #C4614D;
+    --unknown:   #3A525B;
+    --glow:      0 0 0 1px rgba(192,143,82,.18);
+  }
+
+  /* Daylight — cool harbour grey, ink navy. Not cream, not white. */
+  :root[data-theme="light"] {
+    --ground:    #E4EAEA;
+    --panel:     #F1F4F3;
+    --panel-lip: #DCE4E3;
+    --ink:       #12242C;
+    --ink-soft:  #55696F;
+    --ink-faint: #93A5A9;
+    --rule:      #CBD6D5;
+    --brass:     #8A6127;
+    --up:        #3D7A5E;
+    --slow:      #9C6F22;
+    --down:      #A8432E;
+    --unknown:   #BCC7C6;
+    --glow:      0 0 0 1px rgba(138,97,39,.14);
   }
 
   * { box-sizing: border-box; }
+
+  html { color-scheme: dark; }
+  :root[data-theme="light"] { color-scheme: light; }
 
   body {
     margin: 0;
     background: var(--ground);
     color: var(--ink);
-    font-family: var(--mono);
-    font-size: 14px;
-    line-height: 1.5;
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    transition: background 160ms ease, color 160ms ease;
   }
 
   .wrap {
-    max-width: 60rem;
+    max-width: 62rem;
     margin: 0 auto;
-    padding: 3.5rem 1.5rem 5rem;
+    padding: 4rem 1.75rem 6rem;
   }
 
-  /* ---- Masthead ---- */
+  /* ---------- Masthead ---------- */
 
-  header {
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 1rem;
-    margin-bottom: 2.5rem;
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 3rem;
   }
 
-  .eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.18em;
+  .mark {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-family: var(--display);
+    font-variation-settings: "wght" 700, "wdth" 75;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .mark span.rule {
+    display: block;
+    width: 26px;
+    height: 2px;
+    background: var(--brass);
+  }
+
+  .controls { display: flex; gap: 0.5rem; }
+
+  button {
+    font-family: var(--display);
+    font-variation-settings: "wght" 600, "wdth" 80;
+    font-size: 12px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin: 0 0 0.75rem;
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    transition: color 140ms, border-color 140ms, background 140ms;
+  }
+
+  button:hover:not(:disabled) {
+    color: var(--ink);
+    border-color: var(--brass);
+    background: var(--panel);
+  }
+
+  button:disabled { opacity: .45; cursor: progress; }
+
+  button svg { width: 13px; height: 13px; fill: none;
+               stroke: currentColor; stroke-width: 1.6; }
+
+  /* ---------- Headline ---------- */
+
+  .headline { margin-bottom: 2.25rem; }
+
+  .eyebrow {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.6rem;
   }
 
   h1 {
-    font-size: clamp(1.75rem, 5vw, 2.75rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin: 0 0 0.75rem;
+    font-family: var(--display);
+    font-variation-settings: "wght" 700, "wdth" 78;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 7vw, 4.25rem);
+    line-height: 0.98;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 0 0 0.9rem;
   }
 
-  .headline-state {
+  .state-line {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.6rem;
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--ink-soft);
     flex-wrap: wrap;
   }
 
-  .dot {
-    width: 9px;
-    height: 9px;
+  .beacon {
+    position: relative;
+    width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--unknown);
-    display: inline-block;
     flex: none;
-    align-self: center;
   }
 
-  .dot.live { animation: pulse 2.4s ease-in-out infinite; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50%      { opacity: 0.35; }
+  .beacon::after {
+    content: "";
+    position: absolute; inset: -5px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    color: inherit;
+    opacity: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .dot.live { animation: none; }
+  .beacon.live::after { animation: ping 2.8s ease-out infinite; }
+
+  @keyframes ping {
+    0%   { opacity: .55; transform: scale(.6); }
+    70%  { opacity: 0;   transform: scale(1.5); }
+    100% { opacity: 0;   transform: scale(1.5); }
   }
 
-  .meta {
-    font-size: 12px;
-    color: var(--ink-soft);
-  }
+  /* ---------- Composite ribbon: the signature ----------
+     One continuous band of every check across every service, newest at
+     the right. Reads like the paper roll coming off a chart recorder. */
 
-  /* ---- Service rows ---- */
+  .ribbon-block { margin-bottom: 3rem; }
 
-  .service {
+  .ribbon {
+    display: flex;
+    align-items: stretch;
+    gap: 1px;
+    height: 56px;
     background: var(--panel);
     border: 1px solid var(--rule);
-    padding: 1.25rem 1.25rem 1rem;
-    margin-bottom: 0.75rem;
+    border-radius: var(--radius);
+    padding: 5px;
+    overflow: hidden;
   }
 
-  .service-head {
+  .ribbon .col {
+    flex: 1 1 0;
+    min-width: 1px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1px;
+  }
+
+  .ribbon .seg { flex: 1 1 0; background: var(--unknown); border-radius: 1px; }
+
+  .ribbon-scale {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    margin-bottom: 0.9rem;
-  }
-
-  .service-name {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .service-url {
-    display: block;
-    font-size: 11px;
-    color: var(--ink-soft);
-    font-weight: 400;
-    margin-top: 0.15rem;
-    word-break: break-all;
-  }
-
-  .service-state {
-    font-size: 11px;
-    letter-spacing: 0.14em;
+    font-family: var(--data);
+    font-size: 10px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    white-space: nowrap;
+    color: var(--ink-faint);
+    margin-top: 0.6rem;
+  }
+
+  /* ---------- Service rows ---------- */
+
+  .roster {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .row { padding: 1.4rem 1.5rem; border-top: 1px solid var(--rule); }
+  .row:first-child { border-top: none; }
+
+  .row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .svc-name {
+    font-family: var(--display);
+    font-variation-settings: "wght" 600, "wdth" 85;
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: 0.01em;
+    margin: 0 0 0.2rem;
+  }
+
+  .svc-url {
+    font-family: var(--data);
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    word-break: break-all;
+    transition: color 140ms;
+  }
+
+  .svc-url:hover { color: var(--brass); }
+  .svc-url svg { width: 10px; height: 10px; fill: none;
+                 stroke: currentColor; stroke-width: 2; flex: none; }
+
+  .verdict { text-align: right; flex: none; }
+
+  .verdict-word {
+    font-family: var(--display);
+    font-variation-settings: "wght" 600, "wdth" 80;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: block;
+  }
+
+  .verdict-ms {
+    font-family: var(--data);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
   }
 
   .up      { color: var(--up); }
   .down    { color: var(--down); }
   .slow    { color: var(--slow); }
-  .unknown { color: var(--unknown); }
-
-  /* ---- The tick strip: the one thing this page is remembered by ----
-     90 hairlines, one per check, oldest at left. Height encodes latency,
-     colour encodes outcome. It is the data, drawn directly. */
+  .unknown { color: var(--ink-faint); }
 
   .strip {
     display: flex;
     align-items: flex-end;
     gap: 2px;
-    height: 34px;
-    border-bottom: 1px solid var(--rule);
-    padding-bottom: 2px;
-    overflow: hidden;
+    height: 30px;
   }
 
   .tick {
     flex: 1 1 0;
     min-width: 2px;
     background: var(--unknown);
-    opacity: 0.85;
+    border-radius: 1px 1px 0 0;
+    transform-origin: bottom;
   }
 
   .tick.up   { background: var(--up); }
-  .tick.down { background: var(--down); height: 100% !important; }
   .tick.slow { background: var(--slow); }
+  .tick.down { background: var(--down); height: 100% !important; }
 
-  .strip-legend {
+  .strip-foot {
     display: flex;
     justify-content: space-between;
+    font-family: var(--data);
     font-size: 10px;
-    color: var(--ink-soft);
-    letter-spacing: 0.08em;
-    margin-top: 0.5rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    margin-top: 0.55rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
   }
 
-  /* ---- Footer ---- */
+  .strip-foot b { color: var(--ink-soft); font-weight: 600; }
+
+  /* one orchestrated load moment, not scattered effects */
+  .animate .tick { animation: rise 420ms cubic-bezier(.2,.8,.3,1) backwards; }
+
+  @keyframes rise { from { transform: scaleY(0); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate .tick { animation: none; }
+    .beacon.live::after { animation: none; }
+    body, button, .svc-url { transition: none; }
+  }
+
+  /* ---------- Footer + states ---------- */
 
   footer {
-    margin-top: 3rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--rule);
-    font-size: 11px;
-    color: var(--ink-soft);
+    margin-top: 2.5rem;
     display: flex;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
+    font-family: var(--data);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
   }
 
-  .error {
+  .notice {
     background: var(--panel);
-    border: 1px solid var(--down);
-    border-left-width: 3px;
-    padding: 1rem 1.25rem;
-    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--down);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    font-family: var(--data);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-soft);
   }
 
-  a { color: inherit; }
+  .notice b { color: var(--ink); font-weight: 600; }
+
   a:focus-visible, button:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+    outline: 2px solid var(--brass);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 34rem) {
+    .wrap { padding: 2.5rem 1.1rem 4rem; }
+    .row-head { flex-direction: column; gap: .75rem; }
+    .verdict { text-align: left; }
+    .ribbon { height: 44px; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <header>
-    <p class="eyebrow">Availability monitor</p>
-    <h1 id="summary">Checking&hellip;</h1>
-    <div class="headline-state">
-      <span class="dot" id="dot"></span>
-      <span class="meta" id="lastcheck">Loading current readings</span>
+  <div class="topbar">
+    <div class="mark"><span class="rule"></span>Signal</div>
+    <div class="controls">
+      <button id="theme" type="button"></button>
+      <button id="refresh" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7" stroke-linecap="round"/>
+          <path d="M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Refresh
+      </button>
     </div>
-  </header>
+  </div>
 
-  <main id="services">
-    <!-- rendered from status.json -->
-  </main>
+  <div class="headline">
+    <p class="eyebrow" id="eyebrow">Availability monitor</p>
+    <h1 id="summary">Reading&hellip;</h1>
+    <div class="state-line">
+      <span class="beacon" id="beacon"></span>
+      <span id="lastcheck">Loading current readings</span>
+    </div>
+  </div>
+
+  <div class="ribbon-block">
+    <div class="ribbon" id="ribbon"></div>
+    <div class="ribbon-scale">
+      <span id="scale-start">&mdash;</span>
+      <span>Composite signal</span>
+      <span>Now</span>
+    </div>
+  </div>
+
+  <main id="services" aria-live="polite"></main>
 
   <footer>
-    <span>Checks run every 5 minutes from a single vantage point.</span>
+    <span>Probed every 5 minutes &middot; single vantage point</span>
     <span id="generated"></span>
   </footer>
 
 </div>
 
 <script>
-const HISTORY_SLOTS = 90;
+const SLOTS = 90;
+const SLOW_MS = 2000;
 
-function classify(check) {
-  if (!check || check.status === "unknown") return "unknown";
-  if (check.status === "down") return "down";
-  if (check.ms !== null && check.ms > 2000) return "slow";
+/* ---------------- theme ---------------- */
+
+const themeBtn = document.getElementById("theme");
+
+const ICON = {
+  dark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 13.2A8.6 8.6 0 1 1 10.8 3a6.9 6.9 0 0 0 10.2 10.2z" stroke-linejoin="round"/></svg>',
+  light: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>'
+};
+
+function read()  { try { return localStorage.getItem("signal-theme"); } catch (e) { return null; } }
+function write(v){ try { localStorage.setItem("signal-theme", v); } catch (e) {} }
+
+function setTheme(v) {
+  document.documentElement.setAttribute("data-theme", v);
+  // Offer the other one: the button says what it will switch to.
+  const next = v === "dark" ? "light" : "dark";
+  themeBtn.innerHTML = ICON[next] + (next === "dark" ? "Dark" : "Light");
+  themeBtn.setAttribute("aria-label", "Switch to " + next + " theme");
+}
+
+const prefersLight = window.matchMedia &&
+                     window.matchMedia("(prefers-color-scheme: light)").matches;
+let theme = read() === "light" || read() === "dark"
+          ? read()
+          : (prefersLight ? "light" : "dark");
+setTheme(theme);
+
+themeBtn.addEventListener("click", () => {
+  theme = theme === "dark" ? "light" : "dark";
+  setTheme(theme);
+  write(theme);
+});
+
+/* ---------------- helpers ---------------- */
+
+const RANK = { up: 0, slow: 1, unknown: 2, down: 3 };
+
+function classify(c) {
+  if (!c || c.status === "unknown") return "unknown";
+  if (c.status === "down") return "down";
+  if (c.ms !== null && c.ms > SLOW_MS) return "slow";
   return "up";
 }
 
-function label(state) {
-  return { up: "Operational", down: "Down", slow: "Degraded", unknown: "No data" }[state];
+const WORD = { up: "Operational", down: "Down", slow: "Degraded", unknown: "No data" };
+const BANNER = {
+  up:      "All systems nominal",
+  slow:    "Degraded performance",
+  down:    "Service disruption",
+  unknown: "Awaiting first reading"
+};
+
+function height(ms) {
+  if (ms == null) return 26;
+  return Math.min(100, Math.max(16, (ms / 1500) * 100));
 }
 
-// Latency drives tick height: 60ms floor, 1500ms ceiling.
-function tickHeight(ms) {
-  if (ms === null || ms === undefined) return 30;
-  const pct = Math.min(100, Math.max(18, (ms / 1500) * 100));
-  return pct;
-}
-
-function render(data) {
-  const container = document.getElementById("services");
-  container.innerHTML = "";
-
-  let worst = "up";
-  const rank = { up: 0, slow: 1, unknown: 2, down: 3 };
-
-  data.services.forEach(svc => {
-    const state = classify(svc);
-    if (rank[state] > rank[worst]) worst = state;
-
-    const el = document.createElement("section");
-    el.className = "service";
-
-    const head = document.createElement("div");
-    head.className = "service-head";
-    head.innerHTML =
-      '<div class="service-name">' + escapeHtml(svc.name) +
-      '<span class="service-url">' + escapeHtml(svc.url) + '</span></div>' +
-      '<div class="service-state ' + state + '">' + label(state) +
-      (svc.ms !== null ? ' &middot; ' + svc.ms + 'ms' : '') + '</div>';
-    el.appendChild(head);
-
-    const strip = document.createElement("div");
-    strip.className = "strip";
-
-    const history = svc.history || [];
-    const padded = new Array(Math.max(0, HISTORY_SLOTS - history.length))
-      .fill(null)
-      .concat(history.slice(-HISTORY_SLOTS));
-
-    padded.forEach(entry => {
-      const tick = document.createElement("div");
-      const s = entry ? classify(entry) : "unknown";
-      tick.className = "tick " + s;
-      tick.style.height = entry ? tickHeight(entry.ms) + "%" : "22%";
-      if (entry) {
-        tick.title = entry.at + " — " + label(s) +
-                     (entry.ms !== null ? " (" + entry.ms + "ms)" : "");
-      }
-      strip.appendChild(tick);
-    });
-
-    el.appendChild(strip);
-
-    const legend = document.createElement("div");
-    legend.className = "strip-legend";
-    const span = Math.round(HISTORY_SLOTS * 5 / 60);
-    legend.innerHTML = "<span>" + span + "h ago</span>" +
-                       "<span>" + uptimePct(history) + "% uptime</span>" +
-                       "<span>now</span>";
-    el.appendChild(legend);
-
-    container.appendChild(el);
-  });
-
-  const dot = document.getElementById("dot");
-  dot.style.background = "var(--" + worst + ")";
-  dot.classList.add("live");
-
-  document.getElementById("summary").textContent = {
-    up:      "All systems operational",
-    slow:    "Degraded performance",
-    down:    "Service disruption",
-    unknown: "Awaiting first check"
-  }[worst];
-
-  document.getElementById("lastcheck").textContent =
-    "Last checked " + relative(data.generated);
-  document.getElementById("generated").textContent = data.generated;
-}
-
-function uptimePct(history) {
-  if (!history.length) return "—";
-  const good = history.filter(h => h.status === "up").length;
-  return ((good / history.length) * 100).toFixed(1);
+function pad(history) {
+  return new Array(Math.max(0, SLOTS - history.length))
+    .fill(null)
+    .concat(history.slice(-SLOTS));
 }
 
 function relative(iso) {
-  const then = new Date(iso);
-  const mins = Math.round((Date.now() - then.getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins === 1) return "1 minute ago";
-  if (mins < 60) return mins + " minutes ago";
-  const hrs = Math.round(mins / 60);
-  return hrs === 1 ? "1 hour ago" : hrs + " hours ago";
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "moments ago";
+  if (m === 1) return "1 minute ago";
+  if (m < 60) return m + " minutes ago";
+  const h = Math.round(m / 60);
+  return h === 1 ? "1 hour ago" : h + " hours ago";
 }
 
-function escapeHtml(s) {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
 }
+
+function extLink(url) {
+  const a = el("a", "svc-url");
+  a.href = url;
+  a.target = "_blank";
+  // noopener blocks the opened page reaching back via window.opener;
+  // noreferrer withholds the Referer header.
+  a.rel = "noopener noreferrer";
+  a.append(url);
+  a.insertAdjacentHTML("beforeend",
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M14 4h6v6M20 4L10 14" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  return a;
+}
+
+/* ---------------- render ---------------- */
+
+function render(data) {
+  const host = document.getElementById("services");
+  host.innerHTML = "";
+
+  const roster = el("div", "roster");
+  let worst = "up";
+
+  data.services.forEach((svc, i) => {
+    const state = classify(svc);
+    if (RANK[state] > RANK[worst]) worst = state;
+
+    const row = el("div", "row");
+
+    const head = el("div", "row-head");
+    const idBlock = el("div");
+    idBlock.append(el("p", "svc-name", svc.name), extLink(svc.url));
+
+    const verdict = el("div", "verdict");
+    verdict.append(
+      el("span", "verdict-word " + state, WORD[state]),
+      el("span", "verdict-ms", svc.ms != null ? svc.ms + " ms" : "no response")
+    );
+
+    head.append(idBlock, verdict);
+    row.append(head);
+
+    const strip = el("div", "strip");
+    pad(svc.history || []).forEach((entry, j) => {
+      const s = entry ? classify(entry) : "unknown";
+      const tick = el("div", "tick " + s);
+      tick.style.height = entry ? height(entry.ms) + "%" : "20%";
+      tick.style.animationDelay = (i * 60 + j * 4) + "ms";
+      if (entry) {
+        tick.title = entry.at + "  ·  " + WORD[s] +
+                     (entry.ms != null ? "  ·  " + entry.ms + " ms" : "");
+      }
+      strip.append(tick);
+    });
+    row.append(strip);
+
+    const foot = el("div", "strip-foot");
+    const hrs = Math.round(SLOTS * 5 / 60);
+    foot.innerHTML =
+      "<span>" + hrs + "h window</span>" +
+      "<span><b>" + uptime(svc.history || []) + "</b> uptime</span>" +
+      "<span>" + (svc.code != null ? "HTTP " + svc.code : "no reply") + "</span>";
+    row.append(foot);
+
+    roster.append(row);
+  });
+
+  host.append(roster);
+  drawRibbon(data.services);
+
+  const beacon = document.getElementById("beacon");
+  beacon.style.background = "var(--" + worst + ")";
+  beacon.style.color = "var(--" + worst + ")";
+  beacon.classList.add("live");
+
+  document.getElementById("summary").textContent = BANNER[worst];
+  document.getElementById("summary").className = worst === "up" ? "" : worst;
+  document.getElementById("lastcheck").textContent = "Last reading " + relative(data.generated);
+  document.getElementById("generated").textContent = data.generated;
+  document.getElementById("eyebrow").textContent =
+    data.services.length + " endpoint" + (data.services.length === 1 ? "" : "s") + " monitored";
+
+  const first = (data.services[0] || {}).history || [];
+  document.getElementById("scale-start").textContent =
+    first.length ? new Date(first[0].at).toLocaleString([], {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+    }) : "—";
+
+  document.body.classList.add("animate");
+}
+
+// Composite: one column per time slot, one segment per service.
+function drawRibbon(services) {
+  const ribbon = document.getElementById("ribbon");
+  ribbon.innerHTML = "";
+  const padded = services.map(s => pad(s.history || []));
+
+  for (let slot = 0; slot < SLOTS; slot++) {
+    const col = el("div", "col");
+    padded.forEach(hist => {
+      const entry = hist[slot];
+      const seg = el("div", "seg");
+      seg.style.background = entry ? "var(--" + classify(entry) + ")" : "var(--unknown)";
+      seg.style.opacity = entry ? "1" : ".35";
+      col.append(seg);
+    });
+    ribbon.append(col);
+  }
+}
+
+function uptime(history) {
+  if (!history.length) return "—";
+  const good = history.filter(h => h.status === "up").length;
+  return ((good / history.length) * 100).toFixed(1) + "%";
+}
+
+/* ---------------- load ---------------- */
+
+const refreshBtn = document.getElementById("refresh");
 
 function load() {
-  fetch("status.json?t=" + Date.now())
-    .then(r => {
-      if (!r.ok) throw new Error("status.json returned " + r.status);
-      return r.json();
-    })
+  refreshBtn.disabled = true;
+  document.body.classList.remove("animate");
+
+  return fetch("status.json?t=" + Date.now(), { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("status.json returned HTTP " + r.status); return r.json(); })
     .then(render)
     .catch(err => {
-      document.getElementById("summary").textContent = "Monitor unavailable";
-      document.getElementById("services").innerHTML =
-        '<div class="error">Could not read status.json. The checker may not ' +
-        'have run yet, or nginx cannot serve the file.<br><br>' +
-        escapeHtml(err.message) + '</div>';
-    });
+      document.getElementById("summary").textContent = "Monitor offline";
+      document.getElementById("beacon").classList.remove("live");
+      document.getElementById("ribbon").innerHTML = "";
+      const n = el("div", "notice");
+      n.innerHTML = "<b>No readings available.</b><br>" +
+        "The checker has not written status.json yet, or nginx cannot serve it.<br><br>" +
+        err.message.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+      document.getElementById("services").innerHTML = "";
+      document.getElementById("services").append(n);
+    })
+    .finally(() => { refreshBtn.disabled = false; });
 }
 
+refreshBtn.addEventListener("click", load);
 load();
 setInterval(load, 60000);
 </script>
